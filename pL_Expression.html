@@ -6,14 +6,72 @@
 
     <script type="text/javascript">
 
+    //adding basic operators
+
     const topScope = Object.create(null);
+
+    for(let op of ["+", "-", "*", "/", "%", "==", "<", ">"]){
+      topScope[op] = Function("a, b", `return a ${op} b;`);
+    }
 
     topScope.true = true;
     topScope.false = false;
 
     topScope.print = value => {
       console.log(value)
+    };
+
+
+    function skipSpace(string){
+      let first = string.search(/\S/);
+      if(first == -1) return "";
+      return string.slice(first);
     }
+
+
+    function parseExpression(program){
+        program = skipSpace(program);
+
+        let match, expr;
+        if(match = /^"([^"]*)"/.exec(program)){
+          expr = {type: "value", value: match[1]};
+        }
+        else if(match = /^\d+\b/.exec(program)){
+          expr = {type: "value", value: (match[0]};
+        }
+        else if(match = /^[^\s(),"]+/.exec(program)){
+          expr = {type: "word", name: match[0]};
+        }
+        else {
+          throw new SyntaxError("Unexpected syntax: " + program);
+        }
+
+        return parseApply(expr, program.slice(match[0].length));
+    }
+
+    function parseApply(expr, program){
+      program = skipSpace(program);
+      if(program[0] != "("){
+        return {expr: expr, rest: program};
+      }
+
+      program = skipSpace(program.slice(1));
+      expr = {type: "apply", operator: expr, args: []};
+      while(program[0] != ")"){
+        let arg = parseExpression(program);
+        expr.args.push(arg.expr);
+        program = skipSpace(arg.rest);
+
+        if(program[0] == ","){
+          program = program.slice(1);
+        }
+        else if(program[0] != ")"){
+          throw new SyntaxError("Expected ',' or ')'");
+        }
+      }
+      return parseApply(expr, program.slice(1));
+    }
+
 
 
     const specialForms = Object.create(null);
@@ -51,7 +109,8 @@
     };
 
     specialForms.define = (args, scope) => {
-      if(args.length != 2|| args[0].name !== "word"){
+
+      if(args.length != 2|| args[0].type !== "word"){
         throw new SyntaxError("Incorrect use of define");
       }
 
@@ -64,10 +123,7 @@
 
 
 
-    //adding basic operators
-    for(let op of ["+", "-", "*", "/", "%", "==", "<", ">"]){
-      topScope[op] = Function("a, b", `return a ${op} b;`);
-    }
+
 
     function run(program){
       return evaluate(parse(program), Object.create(topScope));
@@ -76,56 +132,6 @@
 
 
 
-
-    function parseExpression(program){
-        program = skipSpace(program);
-
-        let match, expr;
-        if(match = /^"([^"]*)"/.exec(program)){
-          expr = {type: "value", value: match[1]};
-        }
-        else if(match = /^\d+\b/.exec(program)){
-          expr = {type: "value", value: match[0]};
-        }
-        else if(match = /^[^\s(),"]+/.exec(program)){
-          expr = {type: "word", value: match[0]};
-        }
-        else {
-          throw new SyntaxError("Unexpected syntax: " + program);
-        }
-
-        return parseApply(expr, program.slice(match[0].length));
-    }
-
-    function skipSpace(string){
-      let first = string.search(/\S/);
-      if(first == -1) return "";
-      return string.slice(first);
-    }
-
-
-    function parseApply(expr, program){
-      program = skipSpace(program);
-      if(program[0] != "("){
-        return {expr: expr, rest: program};
-      }
-
-      program = skipSpace(program.slice(1));
-      expr = {type: "apply", operator: expr, args: []};
-      while(program[0] != ")"){
-        let arg = parseExpression(program);
-        expr.args.push(arg.expr);
-        program = skipSpace(arg.rest);
-
-        if(program[0] == ","){
-          program = program.slice(1);
-        }
-        else if(program[0] != ")"){
-          throw new SyntaxError("Expected ',' or ')'");
-        }
-      }
-      return parseApply(expr, program.slice(1));
-    }
 
     function parse(program){
       let {expr, rest} = parseExpression(program);
@@ -141,14 +147,17 @@
 
 
     function evaluate(expr, scope){
-      console.log("printing expression", expr);
+      // console.log("printing expression", expr);
+      // console.log(scope, specialForms);
+
 
       if(expr.type == "value"){
+        // console.log("value", expr);
         return expr.value;
       }
 
       else if(expr.type == "word"){
-        console.log(expr.name);
+        // console.log("word", expr);
 
         if(expr.name in scope){
           return scope[expr.name];
@@ -160,16 +169,20 @@
 
       else if(expr.type == "apply"){
         let {operator, args} = expr;
-        console.log(operator.name);
+        // console.log("apply", operator, args);
 
         if(operator.type == "word" &&
           operator.name in specialForms){
+            // console.log(operator.name, expr.args)
             return specialForms[operator.name](expr.args, scope);
         }
         else{
           let op = evaluate(operator, scope);
-          console.lol(operator);
           if(typeof op == "function"){
+            // console.log(operator,, args[1].value);
+
+            console.log(op, op(...args.map(arg=>evaluate(arg, scope))));
+
             return op(...args.map(arg => evaluate(arg, scope)));
           } else {
             throw new TypeError("Applying for a non function");
