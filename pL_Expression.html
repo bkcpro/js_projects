@@ -121,6 +121,40 @@
     };
 
 
+    //introducing functions
+
+    specialForms.fun = (args, scope) => {
+
+        // console.log(args);
+
+        if(!args.length){
+          throw new SyntaxError("Function needs a body");
+        }
+
+        let body = args[args.length - 1];
+        let params = args.slice(0, args.length-1).map(expr => {
+          if(expr.type != "word"){
+            throw new SyntaxError("Parameter names must be words");
+          }
+          else return expr.name;
+        });
+        // console.log(params);
+
+        return function(){
+          if(arguments.length != params.length){
+            throw new TypeError("Wrong number of arguments");
+          }
+          let localScope = Object.create(scope);
+          for(let i = 0; i < arguments.length; i++){
+            localScope[params[i]] = arguments[i];
+          }
+
+          return evaluate(body, localScope);
+        };
+
+    };
+
+
 
 
 
@@ -181,7 +215,7 @@
           if(typeof op == "function"){
             // console.log(operator,, args[1].value);
 
-            console.log(op, op(...args.map(arg=>evaluate(arg, scope))));
+            // console.log(op, op(...args.map(arg=>evaluate(arg, scope))));
 
             return op(...args.map(arg => evaluate(arg, scope)));
           } else {
@@ -194,9 +228,10 @@
 
 
 
-    run('do(define(total, 0), define(count, 1), while(<(count, 11), do(define(total, +(total, count)), define(count, +(count, 1)))), print(total))');
+    // run('do(define(total, 0), define(count, 1), while(<(count, 11), do(define(total, +(total, count)), define(count, +(count, 1)))), print(total))');
 
 
+    run('do(define(plusOne, fun(a, +(a, 1))), print(plusOne(10)))');
 
 
 
